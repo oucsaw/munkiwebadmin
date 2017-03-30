@@ -18,6 +18,15 @@ import plistlib
 
 def manifest(request, manifest_name):
 
+    # This allows use to cut down the size of the the information
+    # retrieved from the JSS (and thus the memory requirements, and
+    # speed of processing)
+    try:
+        computer_record_sections = settings.JSS_COMPUTER_RECORD_SECTIONS
+    except AttributeError:
+        computer_record_sections = ['general', 'location',
+                                    'extensionattributes', 'groupsaccounts']
+
     if request.method == 'GET':
 
         # load base manifest from file system (either a specific one or site_default)
@@ -33,7 +42,9 @@ def manifest(request, manifest_name):
                                  ssl_verify=settings.JSS_VERIFY_CERT)
 
             try:
-                jcomputer = jss_connection.Computer('udid=%s' % manifest_name.upper())
+                search_term ='udid=%s' % manifest_name.upper()
+                jcomputer = jss_connection.Computer(search_term,
+                                                    computer_record_sections)
             except jss.JSSGetError as e:
                 # Log error to apache logs ... this works, but is naff
                 sys.stderr.write('Missing UDID: %s (JSS Says: %s)\n' 
