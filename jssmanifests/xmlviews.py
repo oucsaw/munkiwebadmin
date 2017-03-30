@@ -6,6 +6,7 @@ from django.conf import settings
 from operator import attrgetter
 
 import re
+import sys
 
 from manifests.models import Manifest
 
@@ -31,7 +32,22 @@ def manifest(request, manifest_name):
                                  url=settings.JSS_URL,
                                  ssl_verify=settings.JSS_VERIFY_CERT)
 
-            jcomputer = jss_connection.Computer('udid=%s' % manifest_name.upper())
+            try:
+                jcomputer = jss_connection.Computer('udid=%s' % manifest_name.upper())
+            except jss.JSSGetError as e:
+                # Log error to apache logs ... this works, but is naff
+                sys.stderr.write('Missing UDID: %s (JSS Says: %s)\n' 
+                                  % (manifest_name.upper(), e))
+
+                # Send back site default manifest
+                response = HttpResponse(content_type='application/xml')
+                plistlib.writePlist(manifest, response)
+
+                if settings.JSSMANIFESTS_DOWNLOAD_AS_ATTACHMENT:
+                    response['Content-Disposition'] = "attachment; filename=%s" % udid
+                return response
+
+
             computer = etree.fromstring(jcomputer.__str__())
        
             if settings.JSSMANIFESTS_DEBUG_DUMPJSSEA:
